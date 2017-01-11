@@ -1,7 +1,7 @@
 import os, json
 import numpy as np
-import h5py
-
+import h5py # h5py is pythonic library to deal with big data in hdf5
+            # hdf5 short for hierachical data format
 
 def load_coco_data(base_dir='cs231n/datasets/coco_captioning',
                    max_train=None,
@@ -81,4 +81,3 @@ def sample_coco_minibatch(data, batch_size=100, split='train'):
   image_features = data['%s_features' % split][image_idxs]
   urls = data['%s_urls' % split][image_idxs]
   return captions, image_features, urls
-
