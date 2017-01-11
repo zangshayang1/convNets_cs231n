@@ -26,7 +26,7 @@ def svm_loss_naive(W, X, y, reg):
   num_train = X.shape[0]
   loss = 0.0
   for i in xrange(num_train):
-    scores = X[i].dot(W) 
+    scores = X[i].dot(W)
     # NOTE: W is initialized differently than that in KNN and this dot product can be broadcasted 1 x N dot_with N x c = 1 x c
     correct_class_score = scores[y[i]]
     for j in xrange(num_classes):
@@ -41,14 +41,18 @@ def svm_loss_naive(W, X, y, reg):
         #       gradescent on W_yi = 0 if margin <= 0 else -X[i, :].T, increment over each point.
         dW[:, j] += X[i, :].T
         dW[:, y[i]] -= X[i, :].T
-        
+
+
+
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
-  dW /= num_train ## NOTE: don't forget to average gradescent
-
-  # Add regularization to the loss.
   loss += 0.5 * reg * np.sum(W * W)
+
+  dW /= num_train ## NOTE: don't forget to average gradescent
+  dW += reg * W
+  # Add regularization to the loss.
+
 
   #############################################################################
   # TODO:                                                                     #
@@ -67,10 +71,22 @@ def svm_loss_vectorized(W, X, y, reg):
   """
   Structured SVM loss function, vectorized implementation.
 
-  Inputs and outputs are the same as svm_loss_naive.
+  Inputs have dimension D, there are C classes, and we operate on minibatches
+  of N examples.
+
+  Inputs:
+  - W: A numpy array of shape (D, C) containing weights.
+  - X: A numpy array of shape (N, D) containing a minibatch of data.
+  - y: A numpy array of shape (N,) containing training labels; y[i] = c means
+    that X[i] has label c, where 0 <= c < C.
+  - reg: (float) regularization strength
+
+  Returns a tuple of:
+  - loss as single float
+  - gradient with respect to weights W; an array of same shape as W
   """
   loss = 0.0
-  dW = np.zeros(W.shape) # initialize the gradient as zero
+  dW = np.zeros_like(W) # initialize the gradient as zero
 
   #############################################################################
   # TODO:                                                                     #
@@ -78,18 +94,25 @@ def svm_loss_vectorized(W, X, y, reg):
   # result in loss.                                                           #
   #############################################################################
 
-  num_train = X.shape[0]
-  scores = np.dot(X, W) 
-  
-  correct_scores = scores[np.arange(num_train), y] # NOTE: mask scores matrice with [np.arange(num_train) in axis=0, y in axis = 1]
-                                                   #       its shape got reduced to (num_train, ) -> 1D array while (num_train, 1) -> 2D array
-  delta = np.ones((scores.shape[0], 1))
+  N, _ = X.shape
+  _, C = W.shape
 
-  L = scores - correct_scores.reshape((num_train, 1)) + delta # +/- can be broadcasted through these three 2D arrays
+  scores = np.dot(X, W) # (N, C)
 
-  L[L <= 0] = 0.0
-  L[np.arange(scores.shape[0]), y] = 0.0
-  loss = np.sum(L) / float(X.shape[0]) + 0.5 * reg * np.sum(W * W)
+  correct_scores = scores[np.arange(N), y]
+  # NOTE: mask scores matrice with [np.arange(num_train) in axis=0, y in axis = 1]
+  #       its shape got reduced to (num_train, ) -> 1D array while (num_train, 1) -> 2D array
+  correct_scores = np.dot(correct_scores.reshape(N, 1), np.ones((1, C)))
+
+  delta = np.ones((N, C))
+
+  L = np.fmax(0, scores - correct_scores + delta)
+  # everything between +/- is in (N, C)
+  # np.fmax gives element-wise comparison
+
+  L[np.arange(N), y] = 0
+
+  loss = np.sum(L) / N + 0.5 * reg * np.sum(W * W)
 
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -105,16 +128,20 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  L = scores - correct_scores.reshape((num_train, 1)) + delta
 
-  L[L > 0] = 1
-  L[L <= 0] = 0
-  
-  L[np.arange(num_train), y] = 0 # NOTE: this step is necessary otherwise the following np.sum() will count.
-  L[np.arange(num_train), y] = - np.sum(L, axis = 1)
+  L[L > 0] = 1 # these contribute to the loss
+
+  # for each instance i in range(N):
+  #     for each class in range(C):
+  #         if L[i, j] == 1 contributing to the loss:
+  #             L[i, y_i] -= 1, the right class score got boosted.
+
+  L[np.arange(N), y] = - np.sum(L, axis = 1)
+
 
   dW = np.dot(X.T, L) # NOTE: quite neat!
-  dW = dW / float(num_train)
+
+  dW = dW / N + reg * W
 
 
   #############################################################################

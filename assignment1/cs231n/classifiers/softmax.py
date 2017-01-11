@@ -31,7 +31,7 @@ def softmax_loss_naive(W, X, y, reg):
   #############################################################################
   N, D = X.shape
   D, C = W.shape
-  
+
   for i in range(N):
     scores = np.dot(X[i, :], W)
     # sum_exp_scores = np.sum(np.exp(scores)) this line could easily go exploding if scores are big numbers
@@ -91,6 +91,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   possibility_scores = np.exp(scores) / sum_exp_scores # broadcast
 
   loss = np.sum(- np.log(possibility_scores[np.arange(N), y]))
+  loss /= float(N)
   loss += 0.5 * reg * np.sum(W * W)
 
   # NOTE: Rather that for each class, update weight on each features for N times
@@ -103,34 +104,11 @@ def softmax_loss_vectorized(W, X, y, reg):
   y_mask = np.zeros((N, C))
   y_mask[np.arange(N), y] = 1
   dW -= np.dot(X.T, y_mask)
-
-
-  loss /= float(N)
   dW /= float(N)
+  dW += reg * W
 
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
 
   return loss, dW
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
